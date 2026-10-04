@@ -140,3 +140,89 @@ nameserver 192.168.122.1" > /etc/resolv.conf
 cat /etc/resolv.conf
 ping -c 2 k18.com
 ```
+
+### Soal 11 — Reverse Proxy & Load Balancer Abbey (`soal_11_ab.sh`, di abbey)
+
+- **abbey**: Menggunakan Nginx sebagai reverse proxy yang mengarahkan lalu lintas domain `static.k18.com` ke *Area Core* (`core_backend` yang berisi IP Oblada `192.220.5.6:80` dan Molly `192.220.5.7:80`)[cite: 2, 21].
+- Menambahkan header `Host`, `X-Real-IP`, dan `X-Forwarded-For` pada blok proxy agar IP asli client diteruskan[cite: 1, 2].
+- **Verifikasi**: `nginx -t` OK, pengujian dari client `curl -H "Host: static.k18.com" http://192.220.3.2/profil` berhasil menampilkan respon dinamis dari node backend[cite: 2, 21].
+
+---
+
+### Soal 12 — Basic Authentication path `/admin` (`soal_12.sh`, di penny)
+
+- **penny**: Membuat file kredensial `/etc/apache2/.htpasswd` menggunakan `htpasswd` berisi username `prabs` dan password `pakar_pinter_jadi_goblok`[cite: 1, 3].
+- Menambahkan konfigurasi `<Location "/admin">` di Apache dengan `AuthType Basic` serta mematikan proxy pass khusus path tersebut (`ProxyPass !`)[cite: 3].
+- **Verifikasi**: `curl -i http://www.k18.com/admin` mengembalikan status `401 Unauthorized`[cite: 3]. Pengaksesan dengan `curl -u prabs:pakar_pinter_jadi_goblok http://www.k18.com/admin` mengembalikan status `200 OK`[cite: 3].
+
+---
+
+### Soal 13 — Canonical Redirect (`soal_13.sh` di penny, `soal_13_ab.sh` di abbey)
+
+- **penny**: Konfigurasi VirtualHost Apache untuk `penny.k18.com` dan IP `192.220.4.2` menggunakan `RewriteRule` dengan flag `[R=301,L]` yang memaksa redirect permanen ke `http://www.k18.com`[cite: 1, 4, 21].
+- **abbey**: Konfigurasi server block Nginx untuk `abbey.k18.com` dan IP `192.220.3.2` yang mengembalikan `return 302 http://static.k18.com$request_uri;` (redirect sementara)[cite: 1, 5, 21].
+- **Verifikasi**: Uji `curl -I http://192.220.4.2` mengembalikan `HTTP/1.1 301 Moved Permanently`[cite: 4], sedangkan `curl -I http://192.220.3.2` mengembalikan `HTTP/1.1 302 Moved Temporarily`[cite: 5].
+
+---
+
+### Soal 14 — Pencatatan Real Client IP di Log Backend (`soal_14_obladi.sh` di vault, `soal_14_oblada.sh` di core)
+
+- **vault (obladi & desmond)**: Mengaktifkan modul `mod_remoteip` Apache, menentukan header `RemoteIPHeader X-Real-IP`, mendaftarkan IP proxy `192.220.4.0/24` sebagai trusted proxy, serta mengubah format LogFormat dari `%h` ke `%a`[cite: 7, 21].
+- **core (oblada & molly)**: Menambahkan modul `set_real_ip_from` Nginx yang menunjuk ke IP/subnet proxy Abbey (`192.220.3.0/24`) dan menentukan `real_ip_header X-Real-IP;`[cite: 6, 21].
+- **Verifikasi**: Melakukan request dari host client `alpha` (`192.220.1.2`) melalui proxy, lalu memeriksa `/var/log/apache2/access.log` di vault dan `/var/log/nginx/access.log` di core[cite: 6, 7, 21]. Log mencatat `192.220.1.2`, bukan IP proxy[cite: 6, 7, 21].
+
+---
+
+### Soal 15 — Dedicated Path `/eternal` & `/orion` (`soal_15.sh` di penny, `soal_15_ab.sh` di abbey)
+
+- **penny**: Membuat path lokal `/var/www/eternal` yang mengeksekusi script PHP melalui PHP-FPM socket/FastCGI proxy (`proxy:unix:...|fcgi://localhost/`), serta menambahkan `ProxyPass !` agar tidak di-forward ke backend[cite: 1, 8].
+- **abbey**: Membuat path lokal `/var/www/orion` yang menyajikan file statis `index.html` murni tanpa eksekusi PHP melalui directive `alias /var/www/orion/;` di Nginx[cite: 1, 2, 9].
+- **Verifikasi**: Uji `curl http://www.k18.com/eternal/` berhasil merender "PHP Rendering: ACTIVE"[cite: 8]. Uji `curl http://static.k18.com/orion/` menampilkan halaman statis HTML[cite: 9].
+
+---
+
+### Soal 16 — Stress Test Benchmark dengan ApacheBench (`soal_16.sh`, dari client Alpha)
+
+- Menginstal `apache2-utils` pada client `alpha`[cite: 10].
+- Menjalankan perintah pengujian:
+  - `ab -n 250 -c 10 http://www.k18.com/` (menguji Penny → Vault)[cite: 10].
+  - `ab -n 250 -c 10 http://static.k18.com/` (menguji Abbey → Core)[cite: 10].
+- **Verifikasi**: Rangkuman log tersimpan di `/tmp/ab_penny.log` dan `/tmp/ab_abbey.log`, menunjukkan total 250 requests selesai diselesaikan (0 failed requests) dengan metrik *Requests per second* yang tercatat[cite: 10].
+
+---
+
+### Soal 17 — DNS TXT Record Klien Sayap Kiri & Kanan (`soal_17.sh`, di prab)
+
+- Mengedit file zona `/etc/bind/db.k18.com` di `prab` untuk menambahkan TXT record pada kelima node client: `alpha`, `beta`, `gamma`, `delta`, dan `epsilon` yang mengembalikan nama host masing-masing (misal: `alpha IN TXT "alpha"`)[cite: 1, 17, 21].
+- Menaikkan serial SOA di prab untuk memicu sinkronisasi ke slave `tedd`[cite: 1, 17].
+- **Verifikasi**: Perintah `dig @127.0.0.1 alpha.k18.com TXT +short` mengembalikan respon `"alpha"`[cite: 17].
+
+---
+
+### Soal 18 — Simulasi Perubahan A Record & TTL 15s (`soal_18.sh`, di prab)
+
+- Mengubah A record `abbey.k18.com` pada zone file di prab menjadi IP fiktif `10.99.99.99` dengan TTL 15 detik (`abbey 15 IN A 10.99.99.99`) dan menaikkan serial SOA[cite: 1, 18].
+- **Uji 3 Fase**:
+  1. *Sebelum perubahan*: Query mengembalikan IP lama (`192.220.3.2`)[cite: 18, 21].
+  2. *Sesaat setelah perubahan (< 15 detik)*: Query masih mengembalikan IP lama karena respon tersimpan di cache DNS[cite: 1, 18].
+  3. *Setelah TTL habis (> 15 detik)*: Query berhasil memperbarui cache dan mengembalikan IP fiktif baru (`10.99.99.99`)[cite: 1, 18].
+- **Restorasi**: Koordinat A record `abbey` dikembalikan ke IP normal (`192.220.3.2`) dan serial SOA dinaikkan kembali[cite: 1, 18, 21].
+
+---
+
+### Soal 19 — CNAME Internal ke External BadSSL (`soal_19.sh`, di prab)
+
+- Menambahkan record CNAME pada file zona `/etc/bind/db.k18.com`: `outbound IN CNAME http.badssl.com.`[cite: 1, 19].
+- Menaikkan serial SOA dan memuat ulang service BIND (`named`)[cite: 19].
+- **Verifikasi**: Exec `dig @127.0.0.1 outbound.k18.com +short` mengembalikan `http.badssl.com.`[cite: 19]. Eksekusi `curl -sL http://outbound.k18.com` dari client berhasil menampilkan isi konten dari halaman BadSSL[cite: 1, 19].
+
+---
+
+### Soal 20 — Persistence & Autostart Configuration (`soal_20*.sh`, di seluruh node)
+
+- Memastikan semua service, script pengalamatan, dan routing dapat berjalan kembali secara otomatis saat container/node di-restart[cite: 1]:
+  - **rootkit (`soal_20_rootkit.sh`)**: Mengaktifkan IP forwarding (`net.ipv4.ip_forward=1`) dan aturan NAT MASQUERADE[cite: 15].
+  - **prab & tedd (`soal_20_tedd.sh`)**: Memastikan direktori `/run/named` dibuat dengan *ownership* `bind:bind` dan daemon `named` berjalan[cite: 16].
+  - **penny & abbey (`soal_20.sh`)**: Memastikan service Apache2, Nginx, dan PHP-FPM aktif[cite: 13, 20].
+  - **vault & core (`soal_20_oblida.sh`, `soal_20_oblada.sh`)**: Memastikan daemon Nginx, Apache2, dan PHP-FPM berjalan[cite: 13, 14].
+  - **client (`soal_20_alpha.sh`, `soal_20_beta.sh`)**: Memastikan urutan resolver `/etc/resolv.conf` tetap mengarah ke `192.220.5.2` (prab), `192.220.5.3` (tedd), lalu `192.168.122.1`[cite: 11, 12, 21].
