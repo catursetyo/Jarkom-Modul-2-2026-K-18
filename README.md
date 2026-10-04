@@ -195,10 +195,10 @@ nameserver 192.168.122.1" > /etc/resolv.conf
 
 **Validasi:**
 
-- `named-checkzone k18.com /etc/bind/db.k18.com` → OK.
+- `named-checkzone k18.com /etc/bind/db.k18.com` >> OK.
 - Transfer sukses: `/var/lib/bind/` di tedd memuat `db.k18.com`.
-- `dig @192.220.5.2 k18.com SOA +short` dan dari tedd → serial sama (`2026092901`).
-- `dig ... | grep flags` → `aa`; `ping k18.com` dari klien → 192.220.4.2.
+- `dig @192.220.5.2 k18.com SOA +short` dan dari tedd >> serial sama (`2026092901`).
+- `dig ... | grep flags` >> `aa`; `ping k18.com` dari klien >> 192.220.4.2.
 
 ![](assets/soal_4_prab_zone.png)
 
@@ -230,7 +230,7 @@ oblada  IN      A       192.220.5.6
 molly   IN      A       192.220.5.7
 ```
 
-**Validasi:** `hostname -f` → `alpha.k18.com` (dst.); `dig @192.220.5.2 alpha.k18.com +short` dan dari tedd menghasilkan IP sama; `ping molly.k18.com` dari klien.
+**Validasi:** `hostname -f` >> `alpha.k18.com` (dst.); `dig @192.220.5.2 alpha.k18.com +short` dan dari tedd menghasilkan IP sama; `ping molly.k18.com` dari klien.
 
 di tiap client
 ```bash
@@ -465,8 +465,8 @@ Konten profil berbeda per node padahal script PHP-nya sama - bukti `/profil` ter
 
 - Menginstal `apache2-utils` pada client `alpha`.
 - Menjalankan perintah pengujian:
-  - `ab -n 250 -c 10 http://www.k18.com/` (menguji Penny → Vault).
-  - `ab -n 250 -c 10 http://static.k18.com/` (menguji Abbey → Core).
+  - `ab -n 250 -c 10 http://www.k18.com/` (menguji Penny >> Vault).
+  - `ab -n 250 -c 10 http://static.k18.com/` (menguji Abbey >> Core).
 - **Verifikasi**: Rangkuman log tersimpan di `/tmp/ab_penny.log` dan `/tmp/ab_abbey.log`, menunjukkan total 250 requests selesai diselesaikan (0 failed requests) dengan metrik *Requests per second* yang tercatat.
 
 ---
